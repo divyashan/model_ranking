@@ -31,6 +31,7 @@ Series C (Applied Statistics), Vol. 28, No. 1, pp. 20-28.
 """
 
 import torch
+import numpy as np
 import sys
 
 """
@@ -189,7 +190,7 @@ def initialize(counts):
     patient_classes = torch.zeros([nPatients, nClasses])
     # for each patient, take the average number of observations in each class
     for p in range(nPatients):
-        patient_classes[p,:] = response_sums[p,:] / torch.sum(response_sums[p,:],dtype=float)
+        patient_classes[p,:] = response_sums[p,:] / torch.sum(response_sums[p,:],dtype=torch.float)
         
     return patient_classes
 
