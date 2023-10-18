@@ -78,8 +78,10 @@ def run(counts, tol=0.00001, max_iter=100, init='average'):
         iter += 1
         
         # M-step
-        (class_marginals, error_rates) = m_step(counts, patient_classes)        
- 
+        (class_marginals, error_rates) = m_step(counts, patient_classes)  
+
+        # print(class_marginals)      
+        # return
         # E-setp
         patient_classes = e_step(counts, class_marginals, error_rates)  
         
@@ -114,8 +116,15 @@ def run(counts, tol=0.00001, max_iter=100, init='average'):
     
     np.set_printoptions(precision=4, suppress=True)    
     print("Patient classes")
+    cnt = 0
     for i in range(nPatients):
-        print(patients[i], patient_classes[i,:]) 
+        if patient_classes[i, 1] > 0.01:
+            print(patients[i], patient_classes[i,:]) 
+            cnt += 1
+    print("Number of patients with non zero class 1:", cnt)
+    # class_counts = np.sum(patient_classes, axis=0)
+    # for i, count in enumerate(class_counts):
+    #     print(f"Class {i}: {count} patients")
         
     return (patients, observers, classes, counts, class_marginals, error_rates, patient_classes) 
  
