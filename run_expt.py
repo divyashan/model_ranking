@@ -4,11 +4,13 @@ import numpy as np
 import pdb
 
 import swifter
+from scipy.stats import kendalltau
 from tqdm import tqdm
 
 from paths import create_results_path, get_config_hash
 from ranking_models import random_ranking, labeled_data_ranking, dawid_skene_ranking
 from ranking_helpers import get_model_values_df
+
 
 # All options
 ranking_algs = ['random', 'labeled_global', 'labeled_group_specific', 'oracle', 'dawid_skene', 'nearest_neighbor']
@@ -17,11 +19,8 @@ datasets = ['civilcomments', 'camelyon17']
 # This run's options
 n_runs = 3
 datasets = ['civilcomments']
-ranking_algs = ['random', 'labeled_global']
-# ranking_algs = ['labeled_group_specific', 'oracle']
-ranking_algs = ['oracle']
-# labeled_pcts = [.05, .10, .25, .5, .75, 1.0]
-labeled_pcts = [.1, .25, .5, .75, 1.0]
+ranking_algs = ['random', 'labeled_global', 'labeled_group_specific', 'oracle']
+labeled_pcts = [.1, .25, .5, 1.0]
 
 # Sorting so that the different orderings of group variables produce the same experiment config
 list_of_group_vars = [['sex:male',  'race:black', 'religion:muslim'],]
@@ -119,11 +118,13 @@ for config in tqdm(expt_configs):
         groups, esimated_rankings = dawid_skene_ranking(train_labeled_data, unlabeled_data)
     
     assert len(groups) == len(estimated_rankings)
+    _, true_rankings = labeled_data_ranking(test_labeled_data, unlabeled_data)
 
     # Create dataframe
     results = []
-    for group, ranking in zip(groups, estimated_rankings):
-        result = {'group': group, 'ranking': ranking}
+    for group, ranking, true_ranking in zip(groups, estimated_rankings, true_rankings):
+        result = {'group': group, 'ranking': ranking, 'true_ranking': true_ranking}
+        result['kendalltau'] = kendalltau(ranking, true_ranking)[0]
         result.update(config)
         results.append(result)
     

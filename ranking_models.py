@@ -42,7 +42,7 @@ def compute_ranks(labeled_preds, labeled_targets, metric="sensitivity"):
 
 def random_ranking(labeled_data, unlabeled_data, rank_metric="sensitivity"):
     labeled_preds, labeled_groups, _ = labeled_data
-    groups = list(set(labeled_groups))
+    groups = sorted(list(set(labeled_groups)))
     n_models = labeled_preds.shape[1]
 
     model_choices = list(range(n_models))
@@ -52,8 +52,8 @@ def random_ranking(labeled_data, unlabeled_data, rank_metric="sensitivity"):
 
 def labeled_data_ranking(labeled_data, unlabeled_data, rank_metric="sensitivity", granularity="group"):
     labeled_preds, labeled_groups, labeled_targets = labeled_data
-
-    groups = list(set(labeled_groups))
+    groups = sorted(list(set(labeled_groups)))
+    
     group_specific_ranks = []
     if granularity == "group":
         for group in groups:
@@ -62,7 +62,6 @@ def labeled_data_ranking(labeled_data, unlabeled_data, rank_metric="sensitivity"
             group_specific_ranks.append(tuple(model_ranks))
     elif granularity == "global":
         model_ranks = compute_ranks(labeled_preds, labeled_targets, rank_metric)
-        pdb.set_trace()
         group_specific_ranks = [tuple(model_ranks) for group in groups]
 
     return groups, group_specific_ranks
