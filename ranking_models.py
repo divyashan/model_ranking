@@ -37,7 +37,8 @@ def compute_ranks(labeled_preds, labeled_targets, metric="sensitivity"):
             metrics.append(specificity)
 
     ranks = np.argsort(metrics)
-    
+    # I was using this to debug 
+    # print(len(labeled_preds), ranks, [metrics[r] for r in ranks])
     return ranks
 
 def random_ranking(labeled_data, unlabeled_data, rank_metric="sensitivity"):
@@ -53,7 +54,7 @@ def random_ranking(labeled_data, unlabeled_data, rank_metric="sensitivity"):
 def labeled_data_ranking(labeled_data, unlabeled_data, rank_metric="sensitivity", granularity="group"):
     labeled_preds, labeled_groups, labeled_targets = labeled_data
     groups = sorted(list(set(labeled_groups)))
-    
+
     group_specific_ranks = []
     if granularity == "group":
         for group in groups:
@@ -63,7 +64,7 @@ def labeled_data_ranking(labeled_data, unlabeled_data, rank_metric="sensitivity"
     elif granularity == "global":
         model_ranks = compute_ranks(labeled_preds, labeled_targets, rank_metric)
         group_specific_ranks = [tuple(model_ranks) for group in groups]
-
+    print()
     return groups, group_specific_ranks
 
 def dawid_skene_ranking(labeled_data, unlabeled_data, rank_metric="sensitivity"):

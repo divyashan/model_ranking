@@ -19,11 +19,14 @@ datasets = ['civilcomments', 'camelyon17']
 # This run's options
 n_runs = 3
 datasets = ['civilcomments']
+datasets = ['camelyon17']
 ranking_algs = ['random', 'labeled_global', 'labeled_group_specific', 'oracle']
+ranking_algs = ['random', 'labeled_global', 'oracle']
 labeled_pcts = [.1, .25, .5, 1.0]
 
 # Sorting so that the different orderings of group variables produce the same experiment config
-list_of_group_vars = [['sex:male',  'race:black', 'religion:muslim'],]
+# list_of_group_vars = [['sex:male',  'race:black'],]
+list_of_group_vars = [['WSI_index']]
 list_of_group_vars = [sorted(x) for x in list_of_group_vars]
 group_definitions = [','.join(x) for x in list_of_group_vars]
 
@@ -51,7 +54,9 @@ for dataset in datasets:
 # CivilCommetns has no group info for the unlabeled data.
 # Another thing to be careful of: CivilComments does not have group attributes for unlabeled comments.
 
-# TODO: Record metrics for quality of estimated ranking
+# TODO: Record metrics for quality of estimated ranking; only doing kendalltau
+# TODO: Record group size
+# TODO: Something's wrong with CORAL, the sensitivities are really low.
 # TODO: Account for ties in evaluating ranking
 # TODO: Could move iteration over ranking algs to the inner loop, so that we're not regenerating the group vars each time
 # TODO: for certain ranking methods, we need not even load the unlabeled data (since this takes time)
@@ -118,10 +123,10 @@ for config in tqdm(expt_configs):
         groups, esimated_rankings = dawid_skene_ranking(train_labeled_data, unlabeled_data)
     
     assert len(groups) == len(estimated_rankings)
-    _, true_rankings = labeled_data_ranking(test_labeled_data, unlabeled_data)
-
+    _, true_rankings = labeled_data_ranking(test_labeled_data, unlabeled_data, granularity="group")
     # Create dataframe
     results = []
+
     for group, ranking, true_ranking in zip(groups, estimated_rankings, true_rankings):
         result = {'group': group, 'ranking': ranking, 'true_ranking': true_ranking}
         result['kendalltau'] = kendalltau(ranking, true_ranking)[0]
