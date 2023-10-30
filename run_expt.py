@@ -19,14 +19,19 @@ datasets = ['civilcomments', 'camelyon17']
 # This run's options
 n_runs = 3
 datasets = ['civilcomments']
-datasets = ['camelyon17']
+list_of_group_vars = [['sex:male',  'race:black', 'religion:muslim'],]
+# list_of_group_vars = [['sex:male',  'race:black'],]
+
+# datasets = ['camelyon17']
+# list_of_group_vars = [['WSI_index']]
+
+
 ranking_algs = ['random', 'labeled_global', 'labeled_group_specific', 'oracle']
-ranking_algs = ['random', 'labeled_global', 'oracle']
-labeled_pcts = [.1, .25, .5, 1.0]
+labeled_pcts = [.025, .05, .1, .25, .5, 1.0]
 
 # Sorting so that the different orderings of group variables produce the same experiment config
-# list_of_group_vars = [['sex:male',  'race:black'],]
-list_of_group_vars = [['WSI_index']]
+
+
 list_of_group_vars = [sorted(x) for x in list_of_group_vars]
 group_definitions = [','.join(x) for x in list_of_group_vars]
 
@@ -49,15 +54,13 @@ for dataset in datasets:
 # 1. accuracy matrix
 # 2. binary prediction matrix
 # 3. example features 
-# You can get 1. or 2. using get_model_accuracies_df; 
+# You can get 1. or 2. using get_model_values_df; 
 # we should be careful about making sure we don't mix up 1 and 2.
-# CivilCommetns has no group info for the unlabeled data.
 # Another thing to be careful of: CivilComments does not have group attributes for unlabeled comments.
 
 # TODO: Record metrics for quality of estimated ranking; only doing kendalltau
 # TODO: Record group size
 # TODO: Something's wrong with CORAL, the sensitivities are really low.
-# TODO: Account for ties in evaluating ranking
 # TODO: Could move iteration over ranking algs to the inner loop, so that we're not regenerating the group vars each time
 # TODO: for certain ranking methods, we need not even load the unlabeled data (since this takes time)
 
@@ -68,6 +71,7 @@ for config in tqdm(expt_configs):
     # Load example binary predictions for all models on labeled + unlabeled split
     labeled_data_df = get_model_values_df(config, 'test', value='binary_prediction')
     # Set this to be test to speed up the runs but should load this conditionally based on the ranking method
+    ## TODO: Change this to be unlabeled. 
     unlabeled_data_df = get_model_values_df(config, 'test', value='binary_prediction')
 
     # Add group information
@@ -107,29 +111,33 @@ for config in tqdm(expt_configs):
 
     # Estimate rankings per group
     if config['ranking_alg'] == 'random':
-        groups, estimated_rankings = random_ranking(train_labeled_data, unlabeled_data)
+        groups, estimated_rankings, estimated_metrics = random_ranking(train_labeled_data, unlabeled_data)
 
     elif config['ranking_alg'] == 'labeled_global':
-        groups, estimated_rankings = labeled_data_ranking(train_labeled_data, unlabeled_data, granularity="global")
+        groups, estimated_rankings, estimated_metrics = labeled_data_ranking(train_labeled_data, unlabeled_data, granularity="global")
 
     elif config['ranking_alg'] == 'labeled_group_specific':
-        groups, estimated_rankings = labeled_data_ranking(train_labeled_data, unlabeled_data, granularity="group")
+        groups, estimated_rankings, estimated_metrics = labeled_data_ranking(train_labeled_data, unlabeled_data, granularity="group")
 
     elif  config['ranking_alg'] == 'oracle':
-        groups, estimated_rankings = labeled_data_ranking(test_labeled_data, unlabeled_data)
+        groups, estimated_rankings, estimated_metrics = labeled_data_ranking(test_labeled_data, unlabeled_data)
 
     elif config['ranking_alg'] == 'dawid_skene':    
         # Not implemented yet
-        groups, esimated_rankings = dawid_skene_ranking(train_labeled_data, unlabeled_data)
+        groups, esimated_rankings, estimated_metrics = dawid_skene_ranking(train_labeled_data, unlabeled_data)
     
     assert len(groups) == len(estimated_rankings)
-    _, true_rankings = labeled_data_ranking(test_labeled_data, unlabeled_data, granularity="group")
+    _, true_rankings, true_metrics = labeled_data_ranking(test_labeled_data, unlabeled_data, granularity="group")
     # Create dataframe
     results = []
 
-    for group, ranking, true_ranking in zip(groups, estimated_rankings, true_rankings):
-        result = {'group': group, 'ranking': ranking, 'true_ranking': true_ranking}
-        result['kendalltau'] = kendalltau(ranking, true_ranking)[0]
+
+    for group, est_ranking, est_metrics, true_ranking, true_metric in zip(groups, estimated_rankings, estimated_metrics, 
+                                                     true_rankings, true_metrics):
+        result = {'group': group, 'ranking': est_ranking, 'metrics': est_metrics,
+                  'true_ranking': true_ranking, 'true_metrics': true_metric
+                  }
+        result['kendalltau'] = kendalltau(true_metric, est_metrics)[0]
         result.update(config)
         results.append(result)
     

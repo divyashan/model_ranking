@@ -39,7 +39,7 @@ def compute_ranks(labeled_preds, labeled_targets, metric="sensitivity"):
     ranks = np.argsort(metrics)
     # I was using this to debug 
     # print(len(labeled_preds), ranks, [metrics[r] for r in ranks])
-    return ranks
+    return ranks, metrics
 
 def random_ranking(labeled_data, unlabeled_data, rank_metric="sensitivity"):
     labeled_preds, labeled_groups, _ = labeled_data
@@ -47,25 +47,29 @@ def random_ranking(labeled_data, unlabeled_data, rank_metric="sensitivity"):
     n_models = labeled_preds.shape[1]
 
     model_choices = list(range(n_models))
-    random_rankings = [tuple(random.sample(model_choices, len(model_choices))) for i in range(len(groups))]
+    group_metrics = [[np.random.random() for i in range(n_models)] for j in range(len(groups))]
+    random_rankings = [np.argsort(metrics) for metrics in group_metrics]
 
-    return groups, random_rankings
+    return groups, random_rankings, group_metrics
 
 def labeled_data_ranking(labeled_data, unlabeled_data, rank_metric="sensitivity", granularity="group"):
     labeled_preds, labeled_groups, labeled_targets = labeled_data
     groups = sorted(list(set(labeled_groups)))
 
     group_specific_ranks = []
+    group_metrics = []
     if granularity == "group":
         for group in groups:
             group_labeled_preds, group_labeled_targets = labeled_preds[labeled_groups == group], labeled_targets[labeled_groups == group]
-            model_ranks = compute_ranks(group_labeled_preds, group_labeled_targets, rank_metric)
+            model_ranks, model_metrics = compute_ranks(group_labeled_preds, group_labeled_targets, rank_metric)
             group_specific_ranks.append(tuple(model_ranks))
+            group_metrics.append(tuple(model_metrics))
     elif granularity == "global":
-        model_ranks = compute_ranks(labeled_preds, labeled_targets, rank_metric)
-        group_specific_ranks = [tuple(model_ranks) for group in groups]
+        model_ranks, model_metrics = compute_ranks(labeled_preds, labeled_targets, rank_metric)
+        group_specific_ranks = [tuple(model_ranks) for _ in groups]
+        group_metrics = [tuple(model_metrics) for _ in groups]  
     print()
-    return groups, group_specific_ranks
+    return groups, group_specific_ranks, group_metrics
 
 def dawid_skene_ranking(labeled_data, unlabeled_data, rank_metric="sensitivity"):
     labeled_preds,  labeled_groups, labeled_targets = labeled_data
