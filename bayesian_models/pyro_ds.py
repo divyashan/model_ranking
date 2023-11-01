@@ -19,13 +19,15 @@ def model(observed_data):
     with pyro.plate("items", N):
         # True labels for each item
         z = pyro.sample("z", dist.Categorical(theta))
-        
-        with pyro.plate("workers", M):
-            # Confusion matrices for each worker
-            pi = pyro.sample(f"pi", dist.Dirichlet(torch.ones(K, K)))
-            
+    
+    with pyro.plate("workers", M):
+        # Confusion matrices for each worker
+        pi = pyro.sample("pi", dist.Dirichlet(torch.ones(K, K)))
+    
+    with pyro.plate("workers", M, dim=-2):
+        with pyro.plate("items", N, dim=-1):  # specify dim to avoid conflict with workers plate
             # Observed labels
-            pyro.sample(f"L", dist.Categorical(pi[z]), obs=observed_data)
+            pyro.sample("L", dist.Categorical(pi[z]), obs=observed_data)
 
 def guide(observed_data):
     # Variational parameters for class proportions
@@ -36,11 +38,11 @@ def guide(observed_data):
         # Variational parameters for true labels
         phi_q = pyro.param("phi_q", torch.ones(N, K), constraint=dist.constraints.simplex)
         pyro.sample("z", dist.Categorical(phi_q))
-        
-        with pyro.plate("workers", M):
-            # Variational parameters for confusion matrices
-            beta_q = pyro.param(f"beta_q", torch.ones(M, K, K), constraint=dist.constraints.positive)
-            pyro.sample(f"pi", dist.Dirichlet(beta_q))
+    
+    with pyro.plate("workers", M):
+        # Variational parameters for confusion matrices
+        beta_q = pyro.param("beta_q", torch.ones(M, K, K), constraint=dist.constraints.positive)
+        pyro.sample("pi", dist.Dirichlet(beta_q))
 
 # Set up the optimizer and inference algorithm
 adam_params = {"lr": 0.005}
