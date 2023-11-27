@@ -49,7 +49,7 @@ for dataset in datasets:
                     expt_configs.append(expt_config)
 
 # Note: This is only for ranking methods that operate on the predictions. Will have to add 
-# something for methods that  make use of the input features / embeddings.
+# something for methods that  make use of the input features / embeddings, or outputted probabilities
 # Three types of inputs:
 # 1. accuracy matrix
 # 2. binary prediction matrix
@@ -60,7 +60,7 @@ for dataset in datasets:
 
 # TODO: Record metrics for quality of estimated ranking; only doing kendalltau
 # TODO: Record group size
-# TODO: Something's wrong with CORAL, the sensitivities are really low.
+# TODO: Something's wrong with CORAL, the sensitivities are really low; don't read into those results too much
 # TODO: Could move iteration over ranking algs to the inner loop, so that we're not regenerating the group vars each time
 # TODO: for certain ranking methods, we need not even load the unlabeled data (since this takes time)
 
@@ -69,28 +69,28 @@ for config in tqdm(expt_configs):
     np.random.seed(config['run'])
 
     # Load example binary predictions for all models on labeled + unlabeled split
-    labeled_data_df = get_model_values_df(config, 'test', value='binary_prediction')
+    labeled_split_df = get_model_values_df(config, 'test', value='binary_prediction')
     # Set this to be test to speed up the runs but should load this conditionally based on the ranking method
     ## TODO: Change this to be unlabeled. 
-    unlabeled_data_df = get_model_values_df(config, 'test', value='binary_prediction')
+    unlabeled_split_df = get_model_values_df(config, 'test', value='binary_prediction')
 
     # Add group information
     group_vars = config['group_definition'].split(',')  
     for group_var in group_vars:
-        labeled_data_df[group_var] = labeled_data_df[group_var].swifter.progress_bar(False).apply(str)
-        unlabeled_data_df[group_var] = unlabeled_data_df[group_var].swifter.progress_bar(False).apply(str)
+        labeled_split_df[group_var] = labeled_split_df[group_var].swifter.progress_bar(False).apply(str)
+        unlabeled_split_df[group_var] = unlabeled_split_df[group_var].swifter.progress_bar(False).apply(str)
 
-    labeled_data_df['group'] = labeled_data_df[group_vars].swifter.progress_bar(False).apply(lambda x: ','.join(x), axis=1)
-    unlabeled_data_df['group'] = ''
+    labeled_split_df['group'] = labeled_split_df[group_vars].swifter.progress_bar(False).apply(lambda x: ','.join(x), axis=1)
+    unlabeled_split_df['group'] = ''
     if config["dataset"] != 'civilcomments':
-        unlabeled_data_df['group'] = unlabeled_data_df[group_vars].swifter.progress_bar(False).apply(lambda x: ','.join(x), axis=1)
+        unlabeled_split_df['group'] = unlabeled_split_df[group_vars].swifter.progress_bar(False).apply(lambda x: ','.join(x), axis=1)
     
-    train_labeled_data_df = labeled_data_df.sample(frac = 0.5, random_state=config['run'])
-    test_labeled_data_df = labeled_data_df.drop(train_labeled_data_df.index)
+    train_data_df = labeled_split_df.sample(frac = 0.5, random_state=config['run'])
+    test_data_df = labeled_split_df.drop(train_data_df.index)
 
     # Subsample labeled data based on labeled_pct
-    train_labeled_data_df = train_labeled_data_df.sample(frac = config['labeled_pct'], 
-                                                         random_state=config['run'])
+    train_labeled_data_df = train_data_df.sample(frac = config['labeled_pct'], 
+                                                 random_state=config['run'])
 
     # Rearrange to match function inputs
     algs = config['learning_algs']
@@ -98,15 +98,15 @@ for config in tqdm(expt_configs):
                           train_labeled_data_df['group'].values,
                           train_labeled_data_df['label'].values,)
     
-    test_labeled_data = (test_labeled_data_df[algs].values, 
-                         test_labeled_data_df['group'].values,
-                         test_labeled_data_df['label'].values,)
+    test_data = (test_data_df[algs].values, 
+                         test_data_df['group'].values,
+                         test_data_df['label'].values,)
     
-    unlabeled_data = (unlabeled_data_df[algs].values,
-                      unlabeled_data_df['group'].values)
+    unlabeled_data = (unlabeled_split_df[algs].values,
+                      unlabeled_split_df['group'].values)
     
     print("# Labeled training examples: ", train_labeled_data[0].shape[0])
-    print("# Labeled test examples: ", test_labeled_data[0].shape[0])
+    print("# Labeled test examples: ", test_data[0].shape[0])
     print("# Unlabeled examples: ", unlabeled_data[0].shape[0])
 
     # Estimate rankings per group
@@ -127,7 +127,7 @@ for config in tqdm(expt_configs):
         groups, esimated_rankings, estimated_metrics = dawid_skene_ranking(train_labeled_data, unlabeled_data)
     
     assert len(groups) == len(estimated_rankings)
-    _, true_rankings, true_metrics = labeled_data_ranking(test_labeled_data, unlabeled_data, granularity="group")
+    _, true_rankings, true_metrics = labeled_data_ranking(test_data, unlabeled_data, granularity="group")
     # Create dataframe
     results = []
 
